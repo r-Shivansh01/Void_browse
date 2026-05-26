@@ -5,6 +5,8 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use crate::db;
 use crate::commands::card::Card;
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -96,7 +98,7 @@ pub fn save_layout(
     let mut thumbnail_path: Option<String> = None;
     if let Some(ref b64) = state.thumbnail_b64 {
         if let Some(clean_b64) = b64.strip_prefix("data:image/png;base64,") {
-            if let Ok(bytes) = base64::decode(clean_b64) {
+            if let Ok(bytes) = STANDARD.decode(clean_b64) {
                 if let Ok(mut path) = get_thumbnail_dir(&app_handle) {
                     path.push(format!("{}.png", layout_id));
                     if fs::write(&path, bytes).is_ok() {

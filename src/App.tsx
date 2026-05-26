@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useCardsStore } from './store/cards';
 import { canvasActions } from './store/canvas';
 import { useKeyboard } from './hooks/useKeyboard';
@@ -17,14 +17,18 @@ function App() {
 
   useKeyboard(triggerVoidMode);
 
-  // Background Refresher: cycles through HOT cards every 8 seconds and triggers snapshot refreshers
+  // Use ref for latest cards to avoid interval re-creation on every card change
+  const cardsRef = useRef(cards);
+  useEffect(() => {
+    cardsRef.current = cards;
+  }, [cards]);
+
+  // Background Refresher: cycles through HOT cards every 8 seconds
   useEffect(() => {
     const interval = setInterval(async () => {
-      // Get all non-live hot cards
-      const hotCards = cards.filter((c) => c.thermal === 'hot' && !c.isLive);
+      const hotCards = cardsRef.current.filter((c) => c.thermal === 'hot' && !c.isLive);
       if (hotCards.length === 0) return;
 
-      // Refresh one hot card at a time to minimize CPU/Memory spikes
       const cardToRefresh = hotCards[Math.floor(Math.random() * hotCards.length)];
       
       try {
@@ -43,7 +47,7 @@ function App() {
     }, 8000);
 
     return () => clearInterval(interval);
-  }, [cards, updateCard]);
+  }, [updateCard]);
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>

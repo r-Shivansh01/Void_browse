@@ -47,12 +47,16 @@ export class CardSprite {
 
     try {
       const secureSrc = convertFileSrc(snapshotPath);
-      // Load or fetch cached asset texture in PixiJS
-      const texture = await PIXI.Assets.load(secureSrc);
+      const cacheBustUrl = `${secureSrc}?t=${Date.now()}`;
+      // Unload old cached version to pick up updated snapshot files
+      if (PIXI.Assets.cache.has(secureSrc)) {
+        PIXI.Assets.unload(secureSrc);
+      }
+      const texture = await PIXI.Assets.load(cacheBustUrl);
       
       if (this.sprite) {
         this.sprite.texture = texture;
-        this.sprite.tint = 0xffffff; // Reset fallback tint
+        this.sprite.tint = 0xffffff;
         this.sprite.width = width;
         this.sprite.height = height;
       } else {

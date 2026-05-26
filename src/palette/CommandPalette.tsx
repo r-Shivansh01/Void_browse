@@ -32,8 +32,14 @@ export const CommandPalette: React.FC = () => {
   const [mode, setMode] = useState<'command' | 'arg' | 'layout_list'>('command');
   const [selectedCommand, setSelectedCommand] = useState<Command | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Clear error when query changes
+  useEffect(() => {
+    if (error) setError(null);
+  }, [query]);
 
   // App Context for executing commands
   const context: AppContext = {
@@ -173,6 +179,9 @@ export const CommandPalette: React.FC = () => {
             }
             onKeyDown={handleKeyDown}
           />
+          {error && (
+            <div className="palette-error">{error}</div>
+          )}
         </div>
         
         {items.length > 0 && (

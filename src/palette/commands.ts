@@ -36,13 +36,34 @@ export const getCommands = (ctx: AppContext): Command[] => [
     description: 'Open a new card at the center of the viewport',
     args: [{ name: 'url', placeholder: 'Enter URL (e.g. google.com or a search term)', required: true }],
     execute: async (args) => {
-      const url = args[0] || 'https://google.com';
+      let rawInput = (args[0] || '').trim();
+      if (!rawInput) rawInput = 'https://google.com';
+
+      // Normalize URL
+      let url = rawInput;
+      if (!/^https?:\/\//i.test(url)) {
+        if (url.includes('.') && !url.includes(' ')) {
+          url = 'https://' + url;
+        } else {
+          // Search query fallback
+          url = `https://www.google.com/search?q=${encodeURIComponent(url)}`;
+        }
+      }
+
+      // Validate URL
+      try {
+        new URL(url);
+      } catch {
+        console.error('Invalid URL:', url);
+        return;
+      }
+
       // Center coordinates in canvas-space
       const logicalWidth = window.innerWidth;
       const logicalHeight = window.innerHeight;
       
-      const canvasX = (logicalWidth / 2 - ctx.panX) / ctx.zoom - 480; // offset by half card size (960/2)
-      const canvasY = (logicalHeight / 2 - ctx.panY) / ctx.zoom - 320; // offset by half card height (640/2)
+      const canvasX = (logicalWidth / 2 - ctx.panX) / ctx.zoom - 480;
+      const canvasY = (logicalHeight / 2 - ctx.panY) / ctx.zoom - 320;
 
       try {
         const card = await invoke<Card>('open_card', {
@@ -198,18 +219,16 @@ export const getCommands = (ctx: AppContext): Command[] => [
     keywords: ['kill all', 'clear', 'reset', 'clear canvas'],
     description: 'Close all open cards on the canvas',
     execute: async () => {
-      if (confirm('Are you sure you want to close all cards? This will reset the current session.')) {
-        for (const card of ctx.cards) {
-          try {
-            await invoke('close_card', { id: card.id });
-          } catch (e) {
-            console.error('Error closing card during reset:', e);
-          }
+      for (const card of ctx.cards) {
+        try {
+          await invoke('close_card', { id: card.id });
+        } catch (e) {
+          console.error('Error closing card during reset:', e);
         }
-        ctx.setCards([]);
-        ctx.setConnections([]);
-        ctx.setPaletteOpen(false);
       }
+      ctx.setCards([]);
+      ctx.setConnections([]);
+      ctx.setPaletteOpen(false);
     },
   },
   {

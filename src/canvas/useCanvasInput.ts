@@ -56,7 +56,7 @@ export const useCanvasInput = (
         } else {
           // Select target card (if different)
           if (connectMode.fromCardId !== card.id) {
-            const label = prompt('Enter a label for this connection (optional):') || '';
+            const label = '';
             addConnectionLocal(connectMode.fromCardId, card.id, label);
           }
           setConnectMode(false, null);

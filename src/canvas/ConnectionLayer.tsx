@@ -13,15 +13,11 @@ export const ConnectionLayer: React.FC<ConnectionLayerProps> = ({ previewConnect
 
   const handleConnectionClick = async (connId: string) => {
     if (disconnectModeActive) {
-      if (confirm('Delete this connection?')) {
-        try {
-          // Remove from SQLite (assuming cards store or layout takes care of save)
-          // In VOID, connections are saved inside layout serializations, but we can also delete them locally.
-          removeConnection(connId);
-          setDisconnectMode(false);
-        } catch (e) {
-          console.error('Failed to delete connection:', e);
-        }
+      try {
+        removeConnection(connId);
+        setDisconnectMode(false);
+      } catch (e) {
+        console.error('Failed to delete connection:', e);
       }
     }
   };

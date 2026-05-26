@@ -1,0 +1,271 @@
+
+<style>
+  .report { padding: 1rem 0; font-family: var(--font-mono, monospace); }
+  .section { margin-bottom: 1.5rem; }
+  .section-title { font-size: 13px; font-weight: 500; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.75rem; padding-bottom: 6px; border-bottom: 0.5px solid var(--color-border-tertiary); }
+  .bug { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 10px; }
+  .bug-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+  .sev { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: var(--border-radius-md); white-space: nowrap; flex-shrink: 0; margin-top: 2px; }
+  .sev-critical { background: #FCEBEB; color: #791F1F; }
+  .sev-high { background: #FAEEDA; color: #633806; }
+  .sev-medium { background: #E6F1FB; color: #0C447C; }
+  .sev-low { background: #EAF3DE; color: #27500A; }
+  .bug-title { font-size: 14px; font-weight: 500; color: var(--color-text-primary); }
+  .bug-body { font-size: 13px; color: var(--color-text-secondary); line-height: 1.6; }
+  .bug-body strong { color: var(--color-text-primary); font-weight: 500; }
+  code { font-family: var(--font-mono, monospace); font-size: 12px; background: var(--color-background-secondary); padding: 1px 5px; border-radius: 4px; color: var(--color-text-primary); }
+  .fix-block { margin-top: 8px; padding: 8px 12px; background: var(--color-background-secondary); border-radius: var(--border-radius-md); border-left: 2px solid #1D9E75; }
+  .fix-label { font-size: 11px; color: #0F6E56; font-weight: 500; margin-bottom: 3px; }
+  .fix-text { font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; }
+  .legend { display: flex; gap: 10px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--color-text-secondary); }
+</style>
+
+<div class="report">
+  <div class="legend">
+    <div class="legend-item"><span class="sev sev-critical">CRITICAL</span> App broken</div>
+    <div class="legend-item"><span class="sev sev-high">HIGH</span> Key feature broken</div>
+    <div class="legend-item"><span class="sev sev-medium">MEDIUM</span> Degraded UX</div>
+    <div class="legend-item"><span class="sev sev-low">LOW</span> Polish issue</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">🖤 Black Screen on Launch</div>
+
+    <div class="bug">
+      <div class="bug-header">
+        <span class="sev sev-high">HIGH</span>
+        <div class="bug-title">Empty canvas with zero onboarding — looks like a crash</div>
+      </div>
+      <div class="bug-body">
+        The canvas background <code>#0a0a0a</code> + faint <code>#1a1a1a</code> dot grid is intentional, but the dot grid is almost imperceptible (only 10 RGB values apart). A new user seeing a pure black screen has no visual indication the app is alive. Space working confirms React and IPC are functional — the canvas is rendering; it's just empty and invisible.
+        <div class="fix-block">
+          <div class="fix-label">Fix</div>
+          <div class="fix-text">Add a centered empty-state overlay rendered on the PixiJS canvas: "Press <code>Space</code> → type <code>open &lt;url&gt;</code>" in JetBrains Mono at <code>--palette-dim</code> color. Disappears once any card is added. Also bump dot grid contrast slightly to <code>#252525</code>.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bug">
+      <div class="bug-header">
+        <span class="sev sev-critical">CRITICAL</span>
+        <div class="bug-title">PixiJS may silently fail to mount if WebGL is unavailable</div>
+      </div>
+      <div class="bug-body">
+        PixiJS 8.x defaults to WebGL. On machines with software-only rendering (VMs, RDP sessions, some integrated GPUs), WebGL initialization fails silently, leaving a completely black canvas with no error feedback. The Space key still works because the palette is a React overlay, not PixiJS.
+        <div class="fix-block">
+          <div class="fix-label">Fix</div>
+          <div class="fix-text">In <code>PixiCanvas.tsx</code> during PIXI Application init, catch the <code>webglcontextcreationerror</code> event and fall back to <code>PIXI.autoDetectRenderer({ preference: 'canvas' })</code>. Also add a console error log + a visible on-screen message if even Canvas renderer fails.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">🌐 URL / Page Loading Issues</div>
+
+    <div class="bug">
+      <div class="bug-header">
+        <span class="sev sev-critical">CRITICAL</span>
+        <div class="bug-title">Bare domain (e.g. "instagram") opens blank white page</div>
+      </div>
+      <div class="bug-body">
+        When you type <code>open instagram</code>, no protocol normalization happens. The Tauri WebviewWindow receives <code>instagram</code> as the URL — which is not valid. WKWebKit/WebView2 navigates to <code>about:blank</code> or an error page that renders as white inside the card.
+        <div class="fix-block">
+          <div class="fix-label">Fix in <code>commands.ts → open execute()</code></div>
+          <div class="fix-text">
+            Normalize the URL before passing to <code>open_card</code>:<br/>
+            <code>if (!url.startsWith('http')) url = 'https://' + url</code><br/>
+            Then also try appending <code>.com</code> if no TLD is present. Optionally: if the input contains no dots, treat it as a search query and open <code>https://duckduckgo.com/?q={input}</code>.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bug">
+      <div class="bug-header">
+        <span class="sev sev-high">HIGH</span>
+        <div class="bug-title">Instagram (and similar sites) actively block non-standard user agents</div>
+      </div>
+      <div class="bug-body">
+        Even with a correct URL (<code>https://instagram.com</code>), Instagram's server detects the default Tauri/WebKit user-agent string and returns a blank or degraded page. This affects Instagram, Facebook, LinkedIn, and several other JS-heavy SPAs.
+        <div class="fix-block">
+          <div class="fix-label">Fix in <code>main.rs</code> or <code>tauri.conf.json</code></div>
+          <div class="fix-text">Override the User-Agent on the live WebviewWindow to a real Chrome string: <code>Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36</code>. In Tauri v2, set via <code>WebviewWindowBuilder::user_agent()</code> in Rust, or the <code>userAgent</code> field in <code>tauri.conf.json</code> windows config.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bug">
+      <div class="bug-header">
+        <span class="sev sev-high">HIGH</span>
+        <div class="bug-title">Live WebviewWindow may be positioned at wrong screen coordinates (devicePixelRatio bug)</div>
+      </div>
+      <div class="bug-body">
+        This is explicitly flagged as Open Question #2 in your own <code>VOID_SPEC.md</code>. The PixiJS canvas works in logical pixels; Tauri positions windows in physical pixels. On a HiDPI display (e.g. 2× retina), the live WebviewWindow will be offset by 2× — the card appears at the correct PixiJS position but the real Tauri window sits twice as far from the top-left. Visually this looks like a white overlay that doesn't align with the card.
+        <div class="fix-block">
+          <div class="fix-label">Fix in <code>useLiveView.ts</code> + <code>live_view.rs</code></div>
+          <div class="fix-text">Get <code>window.devicePixelRatio</code> in the frontend and pass it as part of the IPC payload to <code>focus_card</code>. In Rust, multiply all position/size values by <code>devicePixelRatio</code> before calling <code>.set_position()</code> and <code>.set_size()</code> on the WebviewWindow.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bug">
+      <div class="bug-header">
+        <span class="sev sev-medium">MEDIUM</span>
+        <div class="bug-title">Navigation within a live card loses URL tracking</div>
+      </div>
+      <div class="bug-body">
+        The spec doesn't implement a back/forward bar, but also doesn't track URL changes as the user navigates within the live card. When you blur (escape/void), the snapshot is taken and the card's URL in the store is still the original. Restoring the layout later reopens the wrong page.
+        <div class="fix-block">
+          <div class="fix-label">Fix</div>
+          <div class="fix-text">In <code>live_view.rs</code>, listen to the WebviewWindow's <code>on_navigation</code> event and emit an IPC event back to the frontend to update the card's URL in the Zustand store before snapshotting.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">📸 Snapshot Architecture Issues</div>
+
+    <div class="bug">
+      <div class="bug-header">
+        <span class="sev sev-critical">CRITICAL</span>
+        <div class="bug-title">Background refresher WebviewWindow flashes on screen (Windows / WebView2)</div>
+      </div>
+      <div class="bug-body">
+        Open Question #3 in your spec. On Windows, WebView2 may briefly flash a white or black window even when created with <code>visible: false</code>, because WebView2 renders to a native HWND before the <code>visible</code> flag takes effect. This causes jarring flickers during background snapshot cycling.
+        <div class="fix-block">
+          <div class="fix-label">Fix for Windows</div>
+          <div class="fix-text">Create the background refresher window off-screen (e.g. <code>x: -99999, y: -99999</code>) AND with <code>visible: false</code>. Never call <code>show()</code>. Move it back on-screen only for <code>capture_image()</code> if absolutely needed — but test whether <code>capture_image()</code> works off-screen first (it does on macOS/WKWebView; behavior differs on WebView2).</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bug">
+      <div class="bug-header">
+        <span class="sev sev-high">HIGH</span>
+        <div class="bug-title">Snapshot capture fails silently — card shows blank white sprite</div>
+      </div>
+      <div class="bug-body">
+        <code>webview.capture_image()</code> in Tauri v2 is experimental and returns <code>Err</code> on some platforms/pages (e.g. pages with <code>Canvas</code> tainting, cross-origin iframes, or GPU-composited content). When it fails, the PNG is never written, and the card sprite either shows the last valid snapshot or remains a blank white rectangle.
+        <div class="fix-block">
+          <div class="fix-label">Fix in <code>snapshot.rs</code></div>
+          <div class="fix-text">Add explicit error handling: if <code>capture_image()</code> returns <code>Err</code>, emit an event to the frontend so the card can display a fallback (e.g. a grey placeholder with the domain name). Log the error. Optionally fall back to injecting <code>html2canvas</code> via <code>eval_script</code> as noted in the spec.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">🗃️ Persistence / SQLite Issues</div>
+
+    <div class="bug">
+      <div class="bug-header">
+        <span class="sev sev-critical">CRITICAL</span>
+        <div class="bug-title">SQLite plugin not initialized → save/restore crashes silently</div>
+      </div>
+      <div class="bug-body">
+        <code>tauri-plugin-sql</code> requires explicit initialization in <code>main.rs</code> with <code>.plugin(tauri_plugin_sql::Builder::default().build())</code> and a DB migration call. If this was generated by Gemini CLI but not verified, the plugin may be registered but the schema may never be created. All <code>save</code> and <code>restore</code> commands would fail without any visible feedback.
+        <div class="fix-block">
+          <div class="fix-label">Verify in <code>db.rs</code></div>
+          <div class="fix-text">Open DevTools (<code>pnpm tauri dev</code> → right-click → Inspect) and run <code>invoke('list_layouts')</code> from the console. If it throws, the DB isn't initialized. Add <code>db::init(&app).await?</code> in <code>main.rs</code> setup and ensure the CREATE TABLE migrations run on first launch.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bug">
+      <div class="bug-header">
+        <span class="sev sev-medium">MEDIUM</span>
+        <div class="bug-title">Snapshot PNG files not cleaned up on <code>kill</code></div>
+      </div>
+      <div class="bug-body">
+        The <code>kill</code> command deletes the card from SQLite, but if <code>close_card</code> in Rust doesn't also delete the snapshot file at <code>{app_data_dir}/void/snapshots/{card_id}.png</code>, dead snapshots accumulate on disk indefinitely.
+        <div class="fix-block">
+          <div class="fix-label">Fix in <code>card.rs → close_card()</code></div>
+          <div class="fix-text">After the DB delete, call <code>std::fs::remove_file(snapshot_path)</code>. Wrap in a non-fatal error handler since the file may not exist (cold card that was never snapshot-ed).</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">⌨️ Command Palette Issues</div>
+
+    <div class="bug">
+      <div class="bug-header">
+        <span class="sev sev-high">HIGH</span>
+        <div class="bug-title">Space key fires inside live card WebviewWindow (double-trigger)</div>
+      </div>
+      <div class="bug-body">
+        The global Space shortcut is registered at the Tauri level. But when the live card WebviewWindow has focus (user is typing in a web form), pressing Space will both type a space character on the page AND open the command palette, because the Tauri global shortcut intercepts the event before it reaches the page.
+        <div class="fix-block">
+          <div class="fix-label">Fix in <code>useKeyboard.ts</code></div>
+          <div class="fix-text">Instead of using Tauri's global shortcut, intercept Space only on the main canvas window via <code>window.addEventListener('keydown')</code>. Check that the event target is <code>document.body</code> or the canvas element (not an input or the live webview). The live WebviewWindow is a separate OS window, so its key events won't bubble to the canvas anyway — but verify this on all platforms.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bug">
+      <div class="bug-header">
+        <span class="sev sev-medium">MEDIUM</span>
+        <div class="bug-title">No validation feedback when <code>open</code> command receives invalid URL</div>
+      </div>
+      <div class="bug-body">
+        Typing <code>open ftp://something</code> or a garbage string creates a card that silently fails to load. The palette closes and nothing happens — no error message, no card, just the empty canvas.
+        <div class="fix-block">
+          <div class="fix-label">Fix in <code>commands.ts → open</code></div>
+          <div class="fix-text">Validate the URL with <code>new URL(normalized)</code> in a try/catch before invoking the Rust command. If invalid, show an inline error in the palette input row (red border + short message) rather than closing the palette.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">🎨 Visual / Canvas Issues</div>
+
+    <div class="bug">
+      <div class="bug-header">
+        <span class="sev sev-medium">MEDIUM</span>
+        <div class="bug-title">Dot grid doesn't tile correctly at extreme zoom levels</div>
+      </div>
+      <div class="bug-body">
+        The spec says the dot grid is drawn once and cached as a tiling texture. At zoom &lt; 0.1 or &gt; 2.5, the pre-baked texture either becomes too sparse (zoomed in) or clumps dots together (zoomed out), because the texture tile size was designed for a specific scale range.
+        <div class="fix-block">
+          <div class="fix-label">Fix in <code>PixiCanvas.tsx</code></div>
+          <div class="fix-text">Regenerate the dot grid <code>Graphics</code> object when zoom crosses threshold buckets (e.g. rebuild texture if <code>Math.floor(Math.log2(zoom))</code> changes). Keep at most 3 cached LOD textures to avoid flicker.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bug">
+      <div class="bug-header">
+        <span class="sev sev-low">LOW</span>
+        <div class="bug-title">Card domain label doesn't stay constant screen size at all zoom levels</div>
+      </div>
+      <div class="bug-body">
+        The spec requires the domain label to remain constant screen-size regardless of zoom (10px, always readable). Achieving this in PixiJS requires inverting the zoom transform on the label's scale: <code>label.scale.set(1 / zoom)</code>. If this is missing, the label shrinks to nothing at low zoom.
+        <div class="fix-block">
+          <div class="fix-label">Fix in <code>CardSprite.ts</code></div>
+          <div class="fix-text">Subscribe to zoom changes in the canvas state store. In the zoom update handler, call <code>domainLabel.scale.set(1 / currentZoom)</code> for every visible card sprite.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">📋 Priority Fix Order</div>
+    <div style="display: grid; grid-template-columns: 32px 1fr; gap: 6px 12px; font-size: 13px;">
+      <span style="color: #791F1F; font-weight: 500;">1.</span><span>URL normalization — add <code>https://</code> prefix + search fallback</span>
+      <span style="color: #791F1F; font-weight: 500;">2.</span><span>Set Chrome User-Agent on live WebviewWindow</span>
+      <span style="color: #791F1F; font-weight: 500;">3.</span><span>devicePixelRatio fix for live card alignment</span>
+      <span style="color: #791F1F; font-weight: 500;">4.</span><span>Verify SQLite plugin init + add DB error feedback</span>
+      <span style="color: #633806; font-weight: 500;">5.</span><span>Add snapshot capture error fallback (grey placeholder)</span>
+      <span style="color: #633806; font-weight: 500;">6.</span><span>Add empty-state "Press Space" hint on canvas</span>
+      <span style="color: #633806; font-weight: 500;">7.</span><span>Background refresher window off-screen positioning (Windows)</span>
+      <span style="color: #185FA5; font-weight: 500;">8.</span><span>Space key guard — prevent double-trigger in live card</span>
+      <span style="color: #185FA5; font-weight: 500;">9.</span><span>Track URL changes inside live card navigation</span>
+      <span style="color: #3B6D11; font-weight: 500;">10.</span><span>Cleanup snapshot PNGs on card kill</span>
+    </div>
+  </div>
+</div>

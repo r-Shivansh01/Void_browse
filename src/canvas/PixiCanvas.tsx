@@ -22,6 +22,8 @@ export const PixiCanvas: React.FC = () => {
 
   const [pixiApp, setPixiApp] = useState<PIXI.Application | null>(null);
   const [canvasContainer, setCanvasContainer] = useState<PIXI.Container | null>(null);
+  const [rendererError, setRendererError] = useState(false);
+  const pixiAppRef = useRef<PIXI.Application | null>(null);
   
   // Bind canvas actions globally
   useEffect(() => {
@@ -186,13 +188,19 @@ export const PixiCanvas: React.FC = () => {
 
     const initPixi = async () => {
       const app = new PIXI.Application();
-      await app.init({
-        resizeTo: window,
-        backgroundColor: 0x0a0a0a,
-        antialias: true,
-        resolution: window.devicePixelRatio || 1,
-        autoDensity: true,
-      });
+      try {
+        await app.init({
+          resizeTo: window,
+          backgroundColor: 0x0a0a0a,
+          antialias: true,
+          resolution: window.devicePixelRatio || 1,
+          autoDensity: true,
+        });
+      } catch (initErr) {
+        console.error('PixiJS renderer init failed:', initErr);
+        setRendererError(true);
+        return;
+      }
 
       // Mount canvas element
       containerRef.current?.appendChild(app.canvas);
@@ -203,7 +211,7 @@ export const PixiCanvas: React.FC = () => {
       // Create infinite Dot Grid Background cached as tiling sprite
       const dotGraphics = new PIXI.Graphics();
       dotGraphics.circle(14, 14, 0.8);
-      dotGraphics.fill({ color: 0x1a1a1a });
+      dotGraphics.fill({ color: 0x2a2a2a });
 
       const dotTexture = app.renderer.generateTexture({
         target: dotGraphics,
@@ -217,6 +225,7 @@ export const PixiCanvas: React.FC = () => {
       gridTiling.position.set(-100000, -100000);
       mainContainer.addChild(gridTiling);
 
+      pixiAppRef.current = app;
       setPixiApp(app);
       setCanvasContainer(mainContainer);
     };
@@ -224,9 +233,8 @@ export const PixiCanvas: React.FC = () => {
     initPixi();
 
     return () => {
-      // Destructor
-      if (pixiApp) {
-        pixiApp.destroy(true, { children: true });
+      if (pixiAppRef.current) {
+        pixiAppRef.current.destroy(true, { children: true });
       }
     };
   }, []);
@@ -341,7 +349,7 @@ export const PixiCanvas: React.FC = () => {
     isDraggingRef.current = false;
 
     // If drag distance is very small, treat as click
-    if (clickDistance < 3) {
+    if (clickDistance < 5) {
       handleCanvasClick(e.clientX, e.clientY);
     }
   };
@@ -373,15 +381,39 @@ export const PixiCanvas: React.FC = () => {
       {/* SVG Connection Layer */}
       <ConnectionLayer previewConnection={previewConnection} />
 
+      {/* Renderer Error Fallback */}
+      {rendererError && (
+        <div className="renderer-error">
+          <div className="renderer-error-icon">⚠</div>
+          <div className="renderer-error-title">Graphics Renderer Unavailable</div>
+          <div className="renderer-error-text">
+            WebGL/WebGPU could not be initialized. This may happen in VMs,<br/>
+            RDP sessions, or systems with limited GPU support.
+          </div>
+        </div>
+      )}
+
+      {/* Empty State Hint */}
+      {!rendererError && cards.length === 0 && (
+        <div className="empty-state-hint">
+          <div className="empty-state-icon">⌘</div>
+          <div className="empty-state-text">
+            Press <kbd>Space</kbd> then type <code>open &lt;url&gt;</code>
+          </div>
+          <div className="empty-state-sub">
+            e.g. <code>open github.com</code> or <code>open machine learning</code>
+          </div>
+        </div>
+      )}
+
       {/* DOM UI Overlays (Constant Text Size Card Labels) */}
       {cards.map((card) => {
         const left = card.x * zoom + panX;
         const top = card.y * zoom + panY;
-        const visible = !card.isLive && zoom >= 0.2; // hide labels if too far zoomed out or live
+        const visible = !card.isLive && zoom >= 0.2;
         
         if (!visible) return null;
 
-        // Parse domain from card URL
         let domain = 'blank';
         try {
           domain = new URL(card.url).hostname;

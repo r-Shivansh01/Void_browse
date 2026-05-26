@@ -69,7 +69,8 @@ pub fn focus_live_card(
             .position(x as f64, y as f64)
             .decorations(false) // Frameless
             .shadow(true)
-            .visible(true);
+            .visible(true)
+            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
         
         let win = win_builder.build().map_err(|e| e.to_string())?;
         win.set_focus().map_err(|e| e.to_string())?;
