@@ -1,7 +1,7 @@
 # 🌌 VOID
 ### The Spatial, Persistent Web Canvas
 
-> "VOID is a desktop browser that replaces the tab metaphor with a persistent spatial canvas. Web pages exist as cards on an infinite 2D plane. There are no tabs, no address bar, no persistent UI chrome. All interaction flows through a single command palette."
+> "VOID is a desktop browser that replaces the tab metaphor with a persistent spatial canvas. Web pages exist as cards on an infinite 2D plane. There are no tabs, no address bar, no persistent UI chrome. All interaction flows through a single command palette...."
 
 ---
 
